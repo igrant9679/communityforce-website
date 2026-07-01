@@ -26,12 +26,93 @@ import { customFieldsRouter } from './routers/customFieldsRouter';
 import { authorRouter } from './routers/authorRouter';
 
 import { logAudit } from './auditLog';
+import { ONE_YEAR_MS } from "@shared/const";
+import { sdk } from "./_core/sdk";
+import {
+  clearFailures,
+  getUserByUsername,
+  hashPassword,
+  isThrottled,
+  recordFailure,
+  verifyPassword,
+} from "./localAuth";
+import { users as usersTable } from "../drizzle/schema";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
+    login: publicProcedure
+      .input(z.object({
+        username: z.string().min(1).max(64),
+        password: z.string().min(1).max(200),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const username = input.username.trim().toLowerCase();
+
+        if (isThrottled(username)) {
+          throw new TRPCError({
+            code: "TOO_MANY_REQUESTS",
+            message: "Too many failed attempts. Try again in 15 minutes.",
+          });
+        }
+
+        const user = await getUserByUsername(username);
+        const valid = user?.passwordHash
+          ? await verifyPassword(input.password, user.passwordHash)
+          : false;
+
+        if (!user || !valid) {
+          recordFailure(username);
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "Invalid username or password",
+          });
+        }
+
+        clearFailures(username);
+        await db.upsertUser({ openId: user.openId, lastSignedIn: new Date() });
+
+        const sessionToken = await sdk.signSession(
+          {
+            openId: user.openId,
+            appId: ENV.appId || "local",
+            name: user.name || user.username || "user",
+          },
+          { expiresInMs: ONE_YEAR_MS }
+        );
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+
+        return { success: true, role: user.role } as const;
+      }),
+    changePassword: protectedProcedure
+      .input(z.object({
+        currentPassword: z.string().min(1).max(200),
+        newPassword: z.string().min(8).max(200),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.user.passwordHash) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This account does not use password login",
+          });
+        }
+        const valid = await verifyPassword(input.currentPassword, ctx.user.passwordHash);
+        if (!valid) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Current password is incorrect" });
+        }
+        const database = await db.getDb();
+        if (!database) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+        }
+        await database
+          .update(usersTable)
+          .set({ passwordHash: await hashPassword(input.newPassword) })
+          .where(eq(usersTable.id, ctx.user.id));
+        return { success: true } as const;
+      }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });

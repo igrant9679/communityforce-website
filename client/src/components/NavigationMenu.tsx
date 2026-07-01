@@ -10,6 +10,8 @@ interface NavigationMenuProps {
   itemClassName?: string;
   activeClassName?: string;
   orientation?: "horizontal" | "vertical";
+  /** Rendered when no menu is configured in the CMS for this location. */
+  fallbackItems?: Array<{ label: string; url: string }>;
 }
 
 interface MenuItem {
@@ -138,6 +140,7 @@ export default function NavigationMenu({
   itemClassName,
   activeClassName,
   orientation = "horizontal",
+  fallbackItems,
 }: NavigationMenuProps) {
   const { data: menuData, isLoading } = trpc.menu.getMenuWithItemsByLocation.useQuery({
     location,
@@ -153,14 +156,24 @@ export default function NavigationMenu({
     );
   }
 
-  if (!menuData || !menuData.items || menuData.items.length === 0) {
+  const items: MenuItem[] =
+    menuData?.items && menuData.items.length > 0
+      ? menuData.items
+      : (fallbackItems ?? []).map((item, index) => ({
+          id: -(index + 1),
+          label: item.label,
+          type: "custom",
+          url: item.url,
+        }));
+
+  if (items.length === 0) {
     return null;
   }
 
   return (
     <nav className={className}>
       <ul className={cn(orientation === "horizontal" ? "flex gap-2" : "space-y-1")}>
-        {menuData.items.map((item) => (
+        {items.map((item) => (
           <MenuItemComponent
             key={item.id}
             item={item}

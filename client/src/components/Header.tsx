@@ -25,8 +25,20 @@ export default function Header() {
           />
         </Link>
 
-        {/* Desktop Navigation - Dynamic Menu */}
-        <NavigationMenu location="header" className="hidden md:flex" />
+        {/* Desktop Navigation - Dynamic Menu (falls back to defaults when no CMS menu exists) */}
+        <NavigationMenu
+          location="header"
+          className="hidden md:flex"
+          fallbackItems={[
+            { label: "Solutions", url: "/solutions" },
+            { label: "Features", url: "/features" },
+            { label: "Use Cases", url: "/use-cases" },
+            { label: "About", url: "/about" },
+            { label: "Partners", url: "/partners" },
+            { label: "Government", url: "/government-services" },
+            { label: "Blog", url: "/blog" },
+          ]}
+        />
 
         {/* CTA Buttons */}
         <div className="hidden md:flex md:items-center md:space-x-4">

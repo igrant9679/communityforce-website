@@ -204,6 +204,13 @@
       "when": 1769202596543,
       "tag": "0028_salty_vulcan",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "5",
+      "when": 1782938822292,
+      "tag": "0029_keen_omega_sentinel",
+      "breakpoints": true
     }
   ]
 }

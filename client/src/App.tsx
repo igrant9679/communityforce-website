@@ -56,6 +56,7 @@ import AdminProfile from "./pages/AdminProfile";
 import AdminCustomFields from "./pages/admin/custom-fields";
 import PagePreview from "./pages/PagePreview";
 import CMSPage from "./pages/CMSPage";
+import Login from "./pages/Login";
 
 /* Federal Modernism Design: Light theme with navy/red color scheme */
 
@@ -64,6 +65,7 @@ function Router() {
   return (
     <Switch>
       <Route path={"/"} component={Home} />
+      <Route path={"/login"} component={Login} />
       <Route path={"/solutions"} component={Solutions} />
       <Route path={"/solutions/grants"} component={GrantsManagement} />
       <Route path={"/solutions/scholarships"} component={ScholarshipsManagement} />

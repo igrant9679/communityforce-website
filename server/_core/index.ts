@@ -11,6 +11,7 @@ import { generateSitemap } from "../sitemap";
 import { generateBlogRSS, generateCategoryRSS, generateTagRSS } from "../rssGenerator";
 import "../scheduledPublishing"; // Start scheduled publishing cron job
 import { startEmailDigestCron } from "../jobs/emailDigestCron";
+import { ensureAdminUser } from "../localAuth";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -108,7 +109,10 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
-    
+
+    // Seed local admin account from ADMIN_USERNAME / ADMIN_PASSWORD
+    ensureAdminUser().catch(err => console.error("[Auth] Admin seeding failed:", err));
+
     // Start email digest cron job
     startEmailDigestCron();
   });
